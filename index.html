@@ -40,7 +40,8 @@
                 }
 
                 try {
-                    const response = await fetch('http://localhost:3000/api/search-anime', {
+                    // YAHAN URL UPDATE KIYA GAYA HAI 👇
+                    const response = await fetch('https://anime-gmb7.onrender.com/api/search-anime', {
                         method: 'POST',
                         body: formData,
                     });
