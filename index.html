@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anime Scene Search</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen p-4 md:p-8 font-sans">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+
+        function App() {
+            const [imageUrl, setImageUrl] = useState('');
+            const [imageFile, setImageFile] = useState(null);
+            const [loading, setLoading] = useState(false);
+            const [result, setResult] = useState(null);
+            const [error, setError] = useState('');
+
+            const handleSearch = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError('');
+                setResult(null);
+
+                const formData = new FormData();
+                if (imageFile) {
+                    formData.append('image', imageFile);
+                } else if (imageUrl) {
+                    formData.append('imageUrl', imageUrl);
+                } else {
+                    setError('Please provide an image url or upload a file.');
+                    setLoading(false);
+                    return;
+                }
+
+                try {
+                    const response = await fetch('http://localhost:3000/api/search-anime', {
+                        method: 'POST',
+                        body: formData,
+                    });
+
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.error || 'Failed to fetch data');
+                    
+                    setResult(data);
+                } catch (err) {
+                    setError(err.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="max-w-4xl mx-auto">
+                    <h1 className="text-4xl md:text-5xl font-extrabold mb-8 text-center text-indigo-400">
+                        Anime Scene Finder
+                    </h1>
+                    
+                    <form onSubmit={handleSearch} className="bg-gray-800 p-6 md:p-8 rounded-xl shadow-2xl mb-8 border border-gray-700">
+                        <div className="mb-6">
+                            <label className="block mb-2 font-semibold text-gray-300">Upload a Screenshot</label>
+                            <input 
+                                type="file" 
+                                accept="image/*" 
+                                onChange={e => { setImageFile(e.target.files[0]); setImageUrl(''); }} 
+                                className="w-full text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 transition cursor-pointer"
+                            />
+                        </div>
+                        
+                        <div className="flex items-center justify-center mb-6">
+                            <span className="text-gray-500 font-bold uppercase text-sm bg-gray-900 px-4 rounded-full py-1">OR</span>
+                        </div>
+                        
+                        <div className="mb-8">
+                            <label className="block mb-2 font-semibold text-gray-300">Paste Image URL</label>
+                            <input 
+                                type="url" 
+                                value={imageUrl} 
+                                onChange={e => { setImageUrl(e.target.value); setImageFile(null); }} 
+                                placeholder="https://example.com/anime-scene.jpg" 
+                                className="w-full p-3 rounded-lg bg-gray-900 border border-gray-600 text-white focus:outline-none focus:border-indigo-500 transition"
+                            />
+                        </div>
+
+                        <button 
+                            type="submit" 
+                            disabled={loading} 
+                            className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-bold text-lg transition disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                        >
+                            {loading ? 'Analyzing Image...' : 'Search Anime'}
+                        </button>
+                    </form>
+
+                    {error && (
+                        <div className="bg-red-500/20 border border-red-500 text-red-200 p-4 rounded-lg mb-8 text-center animate-pulse">
+                            {error}
+                        </div>
+                    )}
+
+                    {result && result.details && (
+                        <div className="bg-gray-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col md:flex-row border border-gray-700">
+                            <div className="relative md:w-1/3">
+                                <img src={result.details.coverImage?.large} alt="Anime Cover" className="w-full h-full object-cover"/>
+                            </div>
+                            
+                            <div className="p-6 md:p-8 flex-1">
+                                <h2 className="text-3xl font-bold text-white mb-1">
+                                    {result.details.title?.english || result.details.title?.romaji}
+                                </h2>
+                                <p className="text-sm text-gray-400 mb-6 font-mono">{result.details.title?.native}</p>
+                                
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                                    <div className="bg-gray-900 p-4 rounded-xl border border-gray-700">
+                                        <span className="block text-indigo-400 text-xs uppercase font-bold tracking-wider mb-1">Episode</span>
+                                        <span className="font-bold text-2xl text-white">{result.match.episode || '?'}</span>
+                                    </div>
+                                    <div className="bg-gray-900 p-4 rounded-xl border border-gray-700">
+                                        <span className="block text-indigo-400 text-xs uppercase font-bold tracking-wider mb-1">Match %</span>
+                                        <span className="font-bold text-2xl text-white">{(result.match.similarity * 100).toFixed(1)}%</span>
+                                    </div>
+                                    <div className="bg-gray-900 p-4 rounded-xl border border-gray-700 col-span-2 md:col-span-1">
+                                        <span className="block text-indigo-400 text-xs uppercase font-bold tracking-wider mb-1">Total Eps</span>
+                                        <span className="font-bold text-2xl text-white">{result.details.episodes || '?'}</span>
+                                    </div>
+                                </div>
+
+                                <div className="mb-6">
+                                    <div className="flex flex-wrap gap-2">
+                                        {result.details.genres?.map(g => (
+                                            <span key={g} className="bg-indigo-900/50 text-indigo-200 border border-indigo-700 text-xs px-3 py-1.5 rounded-full font-medium">
+                                                {g}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                                
+                                <div className="mb-6">
+                                    <span className="block text-gray-400 text-sm uppercase font-bold tracking-wider mb-2">Synopsis</span>
+                                    <div className="text-gray-300 leading-relaxed text-sm" dangerouslySetInnerHTML={{__html: result.details.description}}></div>
+                                </div>
+
+                                {/* Video Player Section */}
+                                {result.match.video && (
+                                    <div className="mt-4">
+                                        <span className="block text-gray-400 text-sm uppercase font-bold tracking-wider mb-2">Scene Preview</span>
+                                        <video controls autoPlay muted className="w-full rounded-lg border border-gray-700 bg-black">
+                                            <source src={result.match.video} type="video/mp4" />
+                                            Your browser does not support the video tag.
+                                        </video>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
